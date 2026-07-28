@@ -104,7 +104,7 @@ AML-102  Repo skeleton and layout
 Type:      Chore
 Est:       30m
 Depends:   -
-Status:    TODO
+Status:    DONE
 
 Target layout:
     /corpus         source facts about me (markdown, hand written)
@@ -124,7 +124,6 @@ Acceptance criteria:
 Done:
   MIT, with an explicit carve-out noting corpus/ is biographical content and
   not covered by the software license.
-  STATUS: DONE
 
 --------------------------------------------------------------------------------
 AML-103  Python environment, pinned
@@ -202,7 +201,7 @@ AML-105  Write the privacy boundary BEFORE writing the corpus
 Type:      Story
 Est:       45m
 Depends:   -
-Status:    TODO
+Status:    DONE
 
 Why:
   This ends as a public website that answers questions about you, indexed by
@@ -236,7 +235,7 @@ Acceptance criteria:
   [x] Decision recorded on whether the site shows a data-handling notice
 
 Done:
-  STATUS: DONE. See docs/privacy-boundary.md.
+  See docs/privacy-boundary.md.
 
   The rule: a fact goes in only if it is about me, already public (or something
   I would volunteer to a stranger at a conference), and still fine to have
