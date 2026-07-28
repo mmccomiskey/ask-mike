@@ -231,9 +231,26 @@ Deliverable: docs/privacy-boundary.md answering:
     goes to Google. Note this, and decide whether the site needs to say so.
 
 Acceptance criteria:
-  [ ] docs/privacy-boundary.md committed
-  [ ] A one-line rule you can apply to any candidate fact without deliberating
-  [ ] Decision recorded on whether the site shows a data-handling notice
+  [x] docs/privacy-boundary.md committed
+  [x] A one-line rule you can apply to any candidate fact without deliberating
+  [x] Decision recorded on whether the site shows a data-handling notice
+
+Done:
+  STATUS: DONE. See docs/privacy-boundary.md.
+
+  The rule: a fact goes in only if it is about me, already public (or something
+  I would volunteer to a stranger at a conference), and still fine to have
+  published five years from now.
+
+  Four grey areas ruled:
+    - Running: general trait only. No paces, mileage, PRs, or injuries.
+      This puts AML-503 (live Garmin/Strava) OUT of scope.
+    - Employer: public-record level. The LinkedIn PDFs are the ceiling, not
+      the starting point.
+    - Family: my side of the music only. Billy's biography links to his
+      archive rather than being restated here.
+    - Disclosure: visible one-line notice that queries go to Google.
+      AML-311 must include it.
 
 Learn:
   That the hardest part of a personal AI project is not the model. Also that
