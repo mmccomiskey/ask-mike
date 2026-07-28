@@ -127,7 +127,7 @@ AML-103  Python environment, pinned
 Type:      Chore
 Est:       30m
 Depends:   AML-102
-Status:    TODO
+Status:    DONE
 
 Steps:
   - Python 3.12 is already on the machine. Use a venv or uv.
@@ -136,9 +136,16 @@ Steps:
         python -c "import torch; print(torch.backends.mps.is_available())"
 
 Acceptance criteria:
-  [ ] requirements.txt or pyproject.toml with pinned versions, committed
-  [ ] `torch.backends.mps.is_available()` returns True
-  [ ] A notebook or script runs and prints a tensor on the mps device
+  [x] requirements.txt or pyproject.toml with pinned versions, committed
+  [x] `torch.backends.mps.is_available()` returns True
+  [x] A notebook or script runs and prints a tensor on the mps device
+
+Done:
+  torch 2.13.0, python 3.12.13, arm64. Verify with:
+      .venv/bin/python scratch/check_env.py
+  Numbers on this machine (2048x2048 matmul, mean of 20):
+      cpu 11.14ms | mps 4.10ms (2.7x) | host<->mps copy 1.22ms
+  See docs/learning-log.md for what the copy number implies.
 
 Learn:
   What device your tensors live on and why moving them costs time. You will

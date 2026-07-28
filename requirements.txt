@@ -1,0 +1,11 @@
+# Track A (the from-scratch model). Direct dependencies only.
+# Full resolved set: requirements-lock.txt
+#
+# Install:  python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+# Verify:   .venv/bin/python scratch/check_env.py
+
+torch==2.13.0
+numpy==2.5.1
+matplotlib==3.11.1
+tiktoken==0.13.0
+jupyter==1.1.1
