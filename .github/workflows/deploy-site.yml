@@ -1,0 +1,63 @@
+name: Deploy site
+
+# AML-104: publish site/ to GitHub Pages on every push to main.
+#
+# Third-party actions are pinned to commit SHAs, not tags. A tag is mutable and
+# can be repointed at new code by whoever controls the repo; a SHA cannot.
+# Refresh these deliberately, checking what changed.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/deploy-site.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let an in-flight deploy finish rather than cancelling it, so main and the
+# live site cannot end up disagreeing.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Stamp build metadata
+        # The live page shows which commit produced it. This is the whole point
+        # of the ticket: a visible, verifiable answer to "am I looking at a
+        # stale build?"
+        run: |
+          set -euo pipefail
+          built=$(date -u '+%Y-%m-%d %H:%M UTC')
+          short="${GITHUB_SHA::7}"
+          sed -i \
+            -e "s|data-build-time>[^<]*<|data-build-time>${built}<|" \
+            -e "s|data-build-commit>[^<]*<|data-build-commit>${short}<|" \
+            site/index.html
+          echo "stamped ${short} at ${built}"
+          grep -o 'data-build-[a-z]*>[^<]*<' site/index.html
+
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

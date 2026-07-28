@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ask-mike</title>
+<meta name="description" content="Building a language model from scratch, then building the version that actually works.">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fbfbf9;
+    --fg: #1a1a18;
+    --muted: #6b6b63;
+    --rule: #e0e0d8;
+    --accent: #8a5a2b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16161a;
+      --fg: #e8e8e3;
+      --muted: #90908a;
+      --rule: #2c2c32;
+      --accent: #d99a5b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 4rem 1.5rem;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.65 ui-sans-serif, system-ui, -apple-system, sans-serif;
+    display: flex;
+    justify-content: center;
+  }
+  main { width: 100%; max-width: 34rem; }
+  h1 {
+    font-size: clamp(1.6rem, 5vw, 2.1rem);
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    margin: 0 0 0.25rem;
+  }
+  .sub { color: var(--muted); margin: 0 0 2.5rem; }
+  h2 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--muted);
+    font-weight: 600;
+    margin: 0 0 0.6rem;
+  }
+  section { padding: 1.5rem 0; border-top: 1px solid var(--rule); }
+  section p { margin: 0 0 0.75rem; }
+  section p:last-child { margin-bottom: 0; }
+  .status {
+    display: inline-block;
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.45rem;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    color: var(--muted);
+    vertical-align: 2px;
+    margin-left: 0.35rem;
+  }
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  footer {
+    margin-top: 1rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85em;
+    background: color-mix(in srgb, var(--fg) 7%, transparent);
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+  }
+  dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 0.3rem 0.9rem; font-size: 0.8rem; }
+  dt { color: var(--muted); }
+  dd { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+</style>
+</head>
+<body>
+<main>
+  <h1>ask-mike</h1>
+  <p class="sub">
+    Building a language model from scratch, then building the version that
+    actually works, and understanding exactly why they differ.
+  </p>
+
+  <section>
+    <h2>Track A &mdash; from scratch <span class="status">not built</span></h2>
+    <p>
+      A decoder-only transformer written by hand in PyTorch. Tokenizer,
+      embeddings, multi-head self-attention, residuals, training loop, sampling.
+      No model classes off the shelf. Trained on a corpus of prose about me,
+      then exported and run here in the browser via a forward pass
+      reimplemented in plain JavaScript.
+    </p>
+    <p>
+      It will overfit and it will say untrue things. That is the intended
+      result, and measuring it precisely is the point.
+    </p>
+  </section>
+
+  <section>
+    <h2>Track B &mdash; the one that works <span class="status">not built</span></h2>
+    <p>
+      Retrieval over a curated knowledge base, embedded at build time into a
+      static file. Similarity search runs client-side, because at a few hundred
+      chunks that genuinely is the right answer and no vector database is
+      warranted. Answers cite their sources and decline what the corpus cannot
+      support.
+    </p>
+  </section>
+
+  <section>
+    <h2>Status</h2>
+    <p>
+      Foundations. This page exists to prove the deploy pipeline works before
+      there is anything interesting to break &mdash; so that later, when model
+      output looks wrong, it is never because of a stale build.
+    </p>
+    <p>
+      Backlog and source:
+      <a href="https://github.com/mmccomiskey/ask-mike">github.com/mmccomiskey/ask-mike</a>
+    </p>
+  </section>
+
+  <footer>
+    <dl>
+      <dt>built</dt><dd data-build-time>local</dd>
+      <dt>commit</dt><dd data-build-commit>working tree</dd>
+    </dl>
+  </footer>
+</main>
+</body>
+</html>
