@@ -117,9 +117,14 @@ Target layout:
     README.md
 
 Acceptance criteria:
-  [ ] Directories exist with a placeholder .gitkeep or README in each
-  [ ] .gitignore covers __pycache__, .venv, *.pt, .env, node_modules
-  [ ] LICENSE chosen (MIT is fine; note the corpus is NOT code, see AML-105)
+  [x] Directories exist with a placeholder .gitkeep or README in each
+  [x] .gitignore covers __pycache__, .venv, *.pt, .env, node_modules
+  [x] LICENSE chosen (MIT is fine; note the corpus is NOT code, see AML-105)
+
+Done:
+  MIT, with an explicit carve-out noting corpus/ is biographical content and
+  not covered by the software license.
+  STATUS: DONE
 
 --------------------------------------------------------------------------------
 AML-103  Python environment, pinned
@@ -157,7 +162,7 @@ AML-104  Hello world through the whole deploy pipeline
 Type:      Story
 Est:       45m
 Depends:   AML-102
-Status:    TODO
+Status:    DONE
 
 Why:
   Prove the boring part works before there is anything interesting to break.
@@ -171,14 +176,25 @@ Steps:
   - Enable Pages in repo settings, source = GitHub Actions
 
 Acceptance criteria:
-  [ ] https://mmccomiskey.github.io/ask-mike loads
-  [ ] Editing site/index.html, pushing, and seeing the change live takes
+  [x] https://mmccomiskey.github.io/ask-mike loads
+  [x] Editing site/index.html, pushing, and seeing the change live takes
       under 3 minutes with no manual steps
-  [ ] The timestamp on the live page matches the last commit
+  [x] The timestamp on the live page matches the last commit
 
 Learn:
   The difference between Pages' "deploy from branch" and "GitHub Actions"
   build types. Your mccomiskey-dev repo uses the workflow type already.
+
+Done:
+  Live at https://mmccomiskey.github.io/ask-mike/ (HTTP 200).
+  Workflow: .github/workflows/deploy-site.yml, build 7s + deploy 11s.
+  Verified for real rather than assumed: the commit rendered in the page
+  footer (c7e3674) matched local HEAD.
+  Actions are pinned to 40-char commit SHAs rather than tags, because a tag is
+  mutable and can be repointed at new code by whoever controls that repo.
+  Refresh them deliberately.
+  Note: the workflow has a paths filter on site/**, so backlog-only commits
+  do not trigger a deploy. Use `gh workflow run "Deploy site"` to force one.
 
 --------------------------------------------------------------------------------
 AML-105  Write the privacy boundary BEFORE writing the corpus
