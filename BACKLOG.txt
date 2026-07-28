@@ -1,0 +1,1393 @@
+================================================================================
+ASK MIKE - PROJECT BACKLOG
+================================================================================
+
+Project key:  AML  (Ask Mike LLM)
+Owner:        Michael McComiskey
+Created:      2026-07-28
+Repo:         https://github.com/mmccomiskey/ask-mike
+Live site:    https://mmccomiskey.github.io/ask-mike  (once AML-104 lands)
+
+--------------------------------------------------------------------------------
+WHAT THIS PROJECT IS
+--------------------------------------------------------------------------------
+
+Two tracks that ship to the same site.
+
+TRACK A - "Build an LLM from scratch"
+  Write a transformer by hand in PyTorch: tokenizer, embeddings, attention,
+  training loop, sampling. Train it on a corpus about me. It will be small and
+  it will be bad at answering questions. That is the point. You will understand
+  exactly WHY it is bad, which is the whole lesson about scale.
+
+TRACK B - "Ask Mike, that actually works"
+  The production pattern: retrieval over a curated knowledge base, plus a
+  hosted model (Gemini) for the language part. This is the thing you can put
+  on your resume and let people use.
+
+Running both is deliberate. Track A teaches you what is inside the box.
+Track B teaches you how the box gets used in the real world. By the end you
+should be able to explain, from first principles, exactly which parts of
+Track B you could have built yourself and which parts require a data center.
+
+
+--------------------------------------------------------------------------------
+HOW TO READ A TICKET
+--------------------------------------------------------------------------------
+
+  Type      Task | Spike | Story | Chore
+  Est       Rough time for someone learning as they go, not an expert
+  Depends   Ticket IDs that must land first
+  Status    TODO | WIP | DONE | BLOCKED
+  Learn     What you should be able to explain out loud when this is done.
+            If you cannot explain it, the ticket is not done.
+
+Numbering:  1xx Foundations   2xx Track A   3xx Track B
+            4xx Ship          5xx Stretch
+
+Work order: Do all of 1xx first. Then Track A and Track B can interleave
+however you like. 4xx after either track produces something viewable.
+
+
+================================================================================
+EPIC 1 - FOUNDATIONS (1xx)
+================================================================================
+Goal: A repo that deploys, an environment that runs, a cloud account that is
+not your employer's, and a written boundary on what this thing is allowed to
+say about you.
+
+Do not skip AML-101 or AML-105. Both are cheap now and expensive later.
+
+--------------------------------------------------------------------------------
+AML-101  Set up a PERSONAL Google Cloud project
+--------------------------------------------------------------------------------
+Type:      Chore
+Est:       30m
+Depends:   -
+Status:    TODO
+
+Why:
+  Your gcloud CLI is currently authenticated as michael.mccomiskey@wunderkind.co
+  with the active project set to wk-artifacts. That is your employer's
+  infrastructure. A personal side project must not touch it: billing, data
+  ownership, and access all belong to Wunderkind, and none of it survives you
+  changing jobs.
+
+Steps:
+  - Create/choose a personal Google account (gmail, not the work address).
+  - Create a new GCP project, e.g. "ask-mike".
+  - Use a separate gcloud configuration so you never cross the wires:
+        gcloud config configurations create personal
+        gcloud config set account <you>@gmail.com
+        gcloud config set project ask-mike
+    Switch with: gcloud config configurations activate personal | default
+  - Get a Gemini API key from Google AI Studio under the personal account.
+  - Check your ACTUAL rate limits at
+    https://aistudio.google.com/rate-limit
+    Google no longer publishes fixed free-tier numbers; they vary per project.
+    Write down what you actually see, and revisit in AML-315.
+
+Acceptance criteria:
+  [ ] `gcloud config configurations list` shows both, work one untouched
+  [ ] Personal project exists and is NOT linked to a work billing account
+  [ ] Gemini API key created and stored in your password manager
+  [ ] Your observed rate limits recorded in docs/quotas.md
+
+Learn:
+  The difference between an AI Studio API key (simple, free tier, consumer)
+  and Vertex AI (IAM, service accounts, regional endpoints, enterprise
+  billing). You want the former for this project. Know why.
+
+--------------------------------------------------------------------------------
+AML-102  Repo skeleton and layout
+--------------------------------------------------------------------------------
+Type:      Chore
+Est:       30m
+Depends:   -
+Status:    TODO
+
+Target layout:
+    /corpus         source facts about me (markdown, hand written)
+    /scratch        the from-scratch model (Track A, python)
+    /rag            retrieval + embedding build scripts (Track B, python)
+    /proxy          Cloud Run service that holds the API key (Track B)
+    /site           the static frontend that gets published to Pages
+    /docs           notes, decisions, quotas, learning log
+    BACKLOG.txt     this file
+    README.md
+
+Acceptance criteria:
+  [ ] Directories exist with a placeholder .gitkeep or README in each
+  [ ] .gitignore covers __pycache__, .venv, *.pt, .env, node_modules
+  [ ] LICENSE chosen (MIT is fine; note the corpus is NOT code, see AML-105)
+
+--------------------------------------------------------------------------------
+AML-103  Python environment, pinned
+--------------------------------------------------------------------------------
+Type:      Chore
+Est:       30m
+Depends:   AML-102
+Status:    TODO
+
+Steps:
+  - Python 3.12 is already on the machine. Use a venv or uv.
+  - Install: torch, numpy, matplotlib, tiktoken (or sentencepiece), jupyter
+  - Confirm torch sees your Apple Silicon GPU:
+        python -c "import torch; print(torch.backends.mps.is_available())"
+
+Acceptance criteria:
+  [ ] requirements.txt or pyproject.toml with pinned versions, committed
+  [ ] `torch.backends.mps.is_available()` returns True
+  [ ] A notebook or script runs and prints a tensor on the mps device
+
+Learn:
+  What device your tensors live on and why moving them costs time. You will
+  care about this in AML-213 when training feels slow.
+
+--------------------------------------------------------------------------------
+AML-104  Hello world through the whole deploy pipeline
+--------------------------------------------------------------------------------
+Type:      Story
+Est:       45m
+Depends:   AML-102
+Status:    TODO
+
+Why:
+  Prove the boring part works before there is anything interesting to break.
+  You want the deploy loop trustworthy on day one so that later, when the
+  model output looks wrong, you never have to wonder if you are looking at a
+  stale build.
+
+Steps:
+  - site/index.html with a heading and a visible build timestamp
+  - GitHub Actions workflow: on push to main, publish /site to Pages
+  - Enable Pages in repo settings, source = GitHub Actions
+
+Acceptance criteria:
+  [ ] https://mmccomiskey.github.io/ask-mike loads
+  [ ] Editing site/index.html, pushing, and seeing the change live takes
+      under 3 minutes with no manual steps
+  [ ] The timestamp on the live page matches the last commit
+
+Learn:
+  The difference between Pages' "deploy from branch" and "GitHub Actions"
+  build types. Your mccomiskey-dev repo uses the workflow type already.
+
+--------------------------------------------------------------------------------
+AML-105  Write the privacy boundary BEFORE writing the corpus
+--------------------------------------------------------------------------------
+Type:      Story
+Est:       45m
+Depends:   -
+Status:    TODO
+
+Why:
+  This ends as a public website that answers questions about you, indexed by
+  search engines, and available to recruiters, strangers, and scrapers. Every
+  fact you put in the corpus is a fact you are publishing permanently. Decide
+  the line deliberately and in writing, once, while it is still abstract.
+  It is much harder to be objective about this later when you are excited
+  about a demo and tempted to make it more impressive.
+
+Deliverable: docs/privacy-boundary.md answering:
+  - IN scope: what do you actively want this to be able to discuss?
+    (career history, tech opinions, running, music, public projects)
+  - OUT of scope, hard no: employer-confidential work, other people's
+    information (family, colleagues, anyone who did not consent), address,
+    contact details beyond what is already public, health specifics,
+    finances, anything about minors
+  - Grey area and your ruling on each. Example: your training data and race
+    times are already in your Garmin/Strava. Do you want them queryable by
+    strangers on a public URL? There is a defensible answer either way, but
+    pick one now.
+  - Note specifically: your father Billy McComiskey is a public figure with
+    his own archive project. Facts about HIM are his to publish, not yours.
+    Decide what you reference vs. what you link out to.
+  - Third party data handling: on the Gemini free tier, prompts and responses
+    may be used to improve Google's products. Every question a visitor asks
+    goes to Google. Note this, and decide whether the site needs to say so.
+
+Acceptance criteria:
+  [ ] docs/privacy-boundary.md committed
+  [ ] A one-line rule you can apply to any candidate fact without deliberating
+  [ ] Decision recorded on whether the site shows a data-handling notice
+
+Learn:
+  That the hardest part of a personal AI project is not the model. Also that
+  "the model refused to say it" is not a privacy control. The only real
+  control is not putting it in the corpus. Guardrails (AML-314) are defense
+  in depth, never the primary boundary.
+
+--------------------------------------------------------------------------------
+AML-106  Build the mental model before the code
+--------------------------------------------------------------------------------
+Type:      Spike
+Est:       3h, spread out
+Depends:   -
+Status:    TODO
+
+Why:
+  Track A goes much faster if the vocabulary is already familiar. Do not try
+  to learn what a "key" and "value" are while also debugging tensor shapes.
+
+Suggested, in this order:
+  - Karpathy, "Let's build GPT: from scratch, in code, spelled out" (video).
+    This project's Track A is deliberately a close cousin of it.
+  - Jay Alammar, "The Illustrated Transformer" (article)
+  - "Attention Is All You Need" (paper). Skim it, then reread after AML-212.
+    The second read is where it pays off.
+
+Acceptance criteria:
+  [ ] docs/learning-log.md started
+  [ ] You can sketch, on paper and unaided, the path a single token takes
+      from string to probability distribution over the vocabulary
+  [ ] You can define, in your own words: token, embedding, logit, softmax,
+      attention head, context window, parameter
+
+Learn:
+  Enough vocabulary that the 2xx tickets read as review rather than as new
+  material.
+
+
+================================================================================
+EPIC 2 - TRACK A: BUILD A TRANSFORMER FROM SCRATCH (2xx)
+================================================================================
+Goal: A working decoder-only transformer that you wrote line by line, trained
+on your own corpus, running in a browser tab, that you can explain completely.
+
+Ground rule for this entire epic: NO importing a model class. No
+`from transformers import ...`. torch.nn.Linear and torch.nn.Embedding are
+allowed. torch.nn.MultiheadAttention and torch.nn.TransformerBlock are NOT.
+If you import the thing you are trying to learn, you have skipped the ticket.
+
+Expectations, stated plainly: with a corpus of a few thousand words and a few
+million parameters on a laptop, this model will produce text that sounds
+vaguely like you and is largely nonsense. It will memorize rather than
+generalize. That is the correct and expected outcome. AML-215 is where you
+measure that failure precisely instead of being disappointed by it.
+
+--------------------------------------------------------------------------------
+AML-201  Write the corpus
+--------------------------------------------------------------------------------
+Type:      Story
+Est:       2-3h
+Depends:   AML-105
+Status:    TODO
+
+Why:
+  Both tracks read from this. It is the highest-leverage file in the project
+  and the only part nobody else can write.
+
+Steps:
+  - Hand write corpus/*.md as first person prose. Prose, not bullet points:
+    Track A is learning to imitate sentence structure, and bullets teach it
+    to produce bullets.
+  - Source material already on this machine to mine:
+      ~/mystuff/Michael McComiskey _ LinkedIn{1,2,3}.pdf  (career history)
+      ~/mystuff/billy-mccomiskey/                          (music heritage,
+                                                            respecting AML-105)
+  - Suggested files: career.md, technical.md, running.md, music.md,
+    opinions.md, faq.md
+  - Every fact must pass the AML-105 one-line rule.
+
+Acceptance criteria:
+  [ ] At least 3,000 words of first person prose in corpus/
+  [ ] Every file reviewed against docs/privacy-boundary.md
+  [ ] A word/token count recorded in docs/learning-log.md. Look at that
+      number and predict now, in writing, how well Track A will do.
+
+Learn:
+  How small "a lot of writing about myself" is in machine learning terms.
+  3,000 words is roughly 4,000 tokens. GPT-3 trained on roughly 300 billion.
+  You are working with something like one hundred-millionth of the data.
+  Write that ratio down. It is the most important number in Track A.
+
+--------------------------------------------------------------------------------
+AML-202  Character level tokenizer
+--------------------------------------------------------------------------------
+Type:      Story
+Est:       1h
+Depends:   AML-201, AML-103
+Status:    TODO
+
+Steps:
+  - Build the sorted set of unique characters in the corpus, that is vocab
+  - encode(str) -> list[int], decode(list[int]) -> str
+  - Assert decode(encode(x)) == x over the whole corpus
+
+Acceptance criteria:
+  [ ] Round trip is lossless on the entire corpus
+  [ ] Vocab size printed, likely 60-90
+  [ ] Whole corpus encoded to a single torch tensor of dtype long
+
+Learn:
+  Why the vocab/sequence-length tradeoff exists. Character level means a tiny
+  vocab but long sequences, so the model must learn spelling before it can
+  learn meaning, and it burns context window doing it.
+
+--------------------------------------------------------------------------------
+AML-203  Subword tokenizer, and compare
+--------------------------------------------------------------------------------
+Type:      Story
+Est:       1.5h
+Depends:   AML-202
+Status:    TODO
+
+Steps:
+  - Encode the same corpus with tiktoken's GPT-2 BPE encoding
+  - Compare: vocab size, resulting sequence length, tokens per word
+  - Print how a few of your own words tokenize. Try "McComiskey" and
+    "Wunderkind". Watch them shatter into pieces.
+
+Acceptance criteria:
+  [ ] Table in docs/learning-log.md comparing char vs BPE on your corpus
+  [ ] A written decision on which one Track A will use, with reasoning
+      (char level is the better teacher; BPE is the better model)
+
+Learn:
+  Why tokenization is where a surprising number of LLM oddities originate:
+  arithmetic failures, spelling and letter-counting failures, and why unusual
+  proper nouns cost more tokens than common words.
+
+--------------------------------------------------------------------------------
+AML-204  Batching and the train/val split
+--------------------------------------------------------------------------------
+Type:      Story
+Est:       1h
+Depends:   AML-202
+Status:    TODO
+
+Steps:
+  - Split 90/10 train/val
+  - get_batch(split) returning x and y of shape (batch_size, block_size)
+    where y is x shifted right by one
+  - Print one x/y pair decoded, and satisfy yourself the offset is right
+
+Acceptance criteria:
+  [ ] Shapes correct and verified by assertion
+  [ ] You can articulate why y is x shifted by exactly one position
+  [ ] You understand that one (x, y) pair contains block_size separate
+      prediction problems, not one
+
+Learn:
+  Self supervision. Nobody labeled this data. The label is just the next
+  character, which means any text is training data. This is the single idea
+  that makes LLMs possible.
+
+--------------------------------------------------------------------------------
+AML-205  Baseline: bigram model
+--------------------------------------------------------------------------------
+Type:      Story
+Est:       1.5h
+Depends:   AML-204
+Status:    TODO
+
+Why:
+  Start with a model so simple it is obviously just a lookup table. Every
+  later ticket is measured against this. If your transformer cannot beat a
+  lookup table, something is broken.
+
+Steps:
+  - nn.Embedding(vocab_size, vocab_size), logits straight out
+  - Cross entropy loss, generate() loop, sample untrained garbage
+  - Train briefly and sample again
+
+Acceptance criteria:
+  [ ] Untrained loss is close to -ln(1/vocab_size). Calculate the expected
+      value first, then check. Being able to predict your initial loss means
+      you understand what the model is doing at init.
+  [ ] Loss drops with training
+  [ ] Output is recognizably English-ish letter frequency and still nonsense
+  [ ] Baseline val loss recorded in docs/learning-log.md
+
+Learn:
+  That "generation" is just: forward pass, softmax, sample, append, repeat.
+  The loop never gets more complicated than this, all the way up to GPT-5.
+  Everything after this ticket only improves the quality of one forward pass.
+
+--------------------------------------------------------------------------------
+AML-206  Token and positional embeddings
+--------------------------------------------------------------------------------
+Type:      Story
+Est:       1h
+Depends:   AML-205
+Status:    TODO
+
+Steps:
+  - Separate n_embd from vocab_size, add a language modeling head
+  - Add a learned positional embedding table, sum it with token embeddings
+
+Acceptance criteria:
+  [ ] Shapes flow correctly end to end
+  [ ] Experiment run: zero out the positional embeddings, observe that loss
+      barely changes at this stage, and write down why. (Nothing in the model
+      can use position yet. Attention in AML-207 is what makes it matter.)
+
+Learn:
+  Why position has to be injected explicitly. Attention is a set operation
+  and is permutation invariant without it.
+
+--------------------------------------------------------------------------------
+AML-207  Single head self attention, by hand
+--------------------------------------------------------------------------------
+Type:      Story
+Est:       3h
+Depends:   AML-206
+Status:    TODO
+
+The centerpiece of Track A. Take your time here. If you only deeply
+understand one ticket in this project, make it this one.
+
+Steps:
+  - Linear projections for key, query, value (no bias)
+  - wei = q @ k.transpose(-2,-1) * head_size**-0.5
+  - softmax over the last dimension, then wei @ v
+  - Print an actual attention matrix for a real sentence from your corpus and
+    read it. Which characters attend to which?
+
+Acceptance criteria:
+  [ ] Written in your own words in docs/learning-log.md, no jargon copied:
+      what the query is asking, what the key advertises, what the value
+      carries
+  [ ] You can explain why the scaling factor is 1/sqrt(head_size), in terms
+      of what happens to softmax when logit variance grows
+  [ ] Loss improves over AML-206
+
+Learn:
+  Attention as data-dependent weighted averaging. The weights are computed
+  from the content itself, which is precisely what a fixed convolution or a
+  plain MLP cannot do.
+
+--------------------------------------------------------------------------------
+AML-208  Causal masking
+--------------------------------------------------------------------------------
+Type:      Story
+Est:       1h
+Depends:   AML-207
+Status:    TODO
+
+Steps:
+  - Register a lower triangular buffer
+  - masked_fill the upper triangle with -inf before softmax
+
+Acceptance criteria:
+  [ ] Print the post-softmax matrix and see the triangle of zeros
+  [ ] Deliberately REMOVE the mask, retrain, and watch loss collapse to
+      near zero. Then explain exactly what the model just cheated at.
+      Restore the mask.
+
+Learn:
+  The difference between a decoder (causal, generative, GPT) and an encoder
+  (bidirectional, BERT). Also a permanent intuition for what data leakage
+  looks like: a loss curve too good to be true.
+
+--------------------------------------------------------------------------------
+AML-209  Multi head attention
+--------------------------------------------------------------------------------
+Type:      Story
+Est:       1.5h
+Depends:   AML-208
+Status:    TODO
+
+Steps:
+  - Run n_head heads in parallel, concatenate on the channel dimension
+  - Add the output projection
+  - Keep n_embd fixed while varying n_head, so head_size = n_embd / n_head
+
+Acceptance criteria:
+  [ ] Same total parameter budget, better loss than single head
+  [ ] You can explain what "multiple communication channels" buys you
+
+Learn:
+  Why parameters spent on parallel narrow heads beat the same parameters
+  spent on one wide head.
+
+--------------------------------------------------------------------------------
+AML-210  Feed forward network
+--------------------------------------------------------------------------------
+Type:      Story
+Est:       45m
+Depends:   AML-209
+Status:    TODO
+
+Steps:
+  - Linear(n_embd, 4*n_embd) -> ReLU or GELU -> Linear(4*n_embd, n_embd)
+
+Acceptance criteria:
+  [ ] Loss improves
+  [ ] You can state the division of labor: attention moves information
+      between positions, the FFN thinks about it within a position
+  [ ] You know roughly what fraction of total parameters live here (most)
+
+Learn:
+  Why the 4x expansion is conventional, and that most of an LLM's parameters
+  (and therefore most of its stored knowledge) sit in these layers, not in
+  attention.
+
+--------------------------------------------------------------------------------
+AML-211  Residual connections and LayerNorm
+--------------------------------------------------------------------------------
+Type:      Story
+Est:       1.5h
+Depends:   AML-210
+Status:    TODO
+
+Steps:
+  - x = x + sublayer(x) around both attention and FFN
+  - Pre-norm LayerNorm, that is norm before the sublayer, not after
+  - Final LayerNorm before the LM head
+
+Acceptance criteria:
+  [ ] Try stacking 6 blocks WITHOUT residuals first. Watch it fail to train.
+      Then add residuals and watch it work. Do not skip this comparison,
+      it is the entire justification for the ticket.
+  [ ] Written note on what the gradient does when it hits an addition node
+
+Learn:
+  Why depth was the blocker before ResNets, and why "pre-norm vs post-norm"
+  is a real argument people have. This ticket is the one that makes deep
+  networks trainable at all.
+
+--------------------------------------------------------------------------------
+AML-212  Assemble the full model
+--------------------------------------------------------------------------------
+Type:      Story
+Est:       1.5h
+Depends:   AML-211
+Status:    TODO
+
+Steps:
+  - A Block class: norm, attention, residual, norm, FFN, residual
+  - nn.Sequential of n_layer blocks
+  - Add dropout
+  - Print the total parameter count
+
+Acceptance criteria:
+  [ ] Clean, readable model.py with a config dataclass at the top
+  [ ] Parameter count printed and recorded
+  [ ] You can hand-derive that count from the config. If your arithmetic
+      does not match the printed number, find out why. It matters.
+  [ ] Reread "Attention Is All You Need" now. Your code should map onto
+      Figure 1 with only the encoder half missing.
+
+Learn:
+  That the famous architecture is about 150 lines of code, and that a modern
+  frontier LLM is mostly this exact code with more layers, more data, and a
+  very large amount of electricity.
+
+--------------------------------------------------------------------------------
+AML-213  Training loop, properly
+--------------------------------------------------------------------------------
+Type:      Story
+Est:       2h
+Depends:   AML-212
+Status:    TODO
+
+Steps:
+  - AdamW, learning rate warmup then cosine decay
+  - Gradient clipping at 1.0
+  - @torch.no_grad() estimate_loss() averaging over several batches
+  - Checkpoint the best val loss to disk
+  - Log train and val loss to a CSV every N steps
+
+Acceptance criteria:
+  [ ] One command trains and produces a reproducible checkpoint (set seeds)
+  [ ] Loss curves plotted from the CSV
+  [ ] Run once WITHOUT gradient clipping and once with a 10x too high
+      learning rate, so you have personally seen a divergent loss curve and
+      will recognize it instantly in future
+  [ ] Wall clock time per 1000 steps recorded
+
+Learn:
+  Why val loss is the only number that means anything, and what the shapes
+  of the common failure curves look like: divergence, plateau, overfit.
+
+--------------------------------------------------------------------------------
+AML-214  Sampling strategies
+--------------------------------------------------------------------------------
+Type:      Story
+Est:       1.5h
+Depends:   AML-213
+Status:    TODO
+
+Steps:
+  - Implement greedy, temperature, top-k, and top-p (nucleus)
+  - Generate the same prompt under each, save outputs side by side
+
+Acceptance criteria:
+  [ ] docs/samples.md with the same prompt across all strategies and
+      temperatures 0.1 / 0.8 / 1.5
+  [ ] You can explain why temperature 0 loops and repeats, and why high
+      temperature produces invented words
+  [ ] You understand that this is a decode-time knob, no retraining involved
+
+Learn:
+  That "creativity" in an LLM is a sampling parameter, not a property of the
+  weights. This directly explains the `temperature` field you will set in
+  Track B, AML-310.
+
+--------------------------------------------------------------------------------
+AML-215  Make the overfitting visible (the scale lesson)
+--------------------------------------------------------------------------------
+Type:      Story
+Est:       2h
+Depends:   AML-213
+Status:    TODO
+
+Why:
+  This is the ticket the whole track exists for. Do not skip it because the
+  model already "works".
+
+Steps:
+  - Train well past the point where val loss bottoms out and turns upward
+  - Plot train and val loss on one chart and mark the divergence point
+  - Take a generated sample and grep your corpus for its phrases
+
+Acceptance criteria:
+  [ ] Chart committed showing train loss falling while val loss rises
+  [ ] Documented evidence of verbatim memorization: a generated span you
+      found word for word in corpus/
+  [ ] A written answer to: "is this model answering questions about me, or
+      recalling my sentences?" Be honest.
+  [ ] Retrain on 10% of the corpus and on 100%, compare val loss, and
+      extrapolate: what corpus size would this architecture actually need?
+
+Learn:
+  The bitter lesson, first hand. Your architecture is essentially correct.
+  It is the same shape as a real LLM. What it lacks is data and compute, and
+  no amount of cleverness in the code closes that gap. This is why Track B
+  rents a model instead of training one, and now you know that from
+  measurement rather than from being told.
+
+--------------------------------------------------------------------------------
+AML-216  Scaling sweep
+--------------------------------------------------------------------------------
+Type:      Spike
+Est:       2h, mostly waiting
+Depends:   AML-215
+Status:    TODO
+
+Steps:
+  - Sweep n_layer, n_head, n_embd, block_size across maybe 6-8 configs
+  - Record params, best val loss, and training time for each
+
+Acceptance criteria:
+  [ ] Results table in docs/scaling.md
+  [ ] Scatter plot of parameters vs best val loss
+  [ ] Identify where adding parameters stops helping on YOUR data, and
+      explain why that point exists
+
+Learn:
+  Scaling laws in miniature, and the practical fact that the compute-optimal
+  model size is a function of your dataset size.
+
+--------------------------------------------------------------------------------
+AML-217  Port the forward pass to pure JavaScript
+--------------------------------------------------------------------------------
+Type:      Story
+Est:       4-6h
+Depends:   AML-216
+Status:    TODO
+
+Why:
+  The real exam. Rewriting inference from scratch in a language with no
+  autograd and no tensor library means you cannot hide behind PyTorch
+  conveniences. Every matmul, every softmax, every reshape has to be
+  something you actually understand. Also it makes the demo static, so it
+  runs on Pages with no backend and no cost.
+
+Steps:
+  - Export weights to a compact binary, plus a JSON config and vocab
+  - Quantize to int8 if the file is uncomfortably large, and measure the
+    quality cost of doing so
+  - Write the forward pass in plain JS: embedding lookup, matmul, softmax,
+    layernorm, causal mask, sampling. No ML libraries.
+  - Verify: same weights, same prompt, same seed, identical logits to
+    PyTorch within floating point tolerance
+
+Acceptance criteria:
+  [ ] JS and PyTorch logits agree to ~1e-4 on a fixed test prompt.
+      This assertion is the ticket. Until it passes, you have a bug and
+      therefore a misunderstanding.
+  [ ] Weights file under ~10MB
+  [ ] Generation runs at a tolerable speed in the browser
+
+Learn:
+  Exactly how little is needed for inference, and where the time actually
+  goes. You will also gain real appreciation for why GPUs and kernel
+  optimization matter, because your naive JS matmul will be slow and you
+  will feel it.
+
+--------------------------------------------------------------------------------
+AML-218  Ship the Track A demo page
+--------------------------------------------------------------------------------
+Type:      Story
+Est:       3h
+Depends:   AML-217, AML-104
+Status:    TODO
+
+Steps:
+  - A page with a prompt box, temperature and top-k sliders, streaming
+    character output, and a tokens/sec readout
+  - Run generation in a Web Worker so the UI does not freeze
+  - Prominent, honest framing: this is a ~N million parameter model trained
+    on ~M tokens on a laptop. Show the numbers. Invite people to notice how
+    bad it is and explain why.
+
+Acceptance criteria:
+  [ ] Live on Pages and working on mobile
+  [ ] Model size, corpus size, and training time displayed on the page
+  [ ] The page teaches the scale lesson to a visitor, not just to you
+
+Learn:
+  How to present a deliberately limited artifact without either
+  overselling it or apologizing for it.
+
+
+================================================================================
+EPIC 3 - TRACK B: THE ONE THAT ACTUALLY WORKS (3xx)
+================================================================================
+Goal: A chat interface at a public URL that answers questions about you
+accurately, cites its sources, declines what it does not know, and costs
+approximately nothing to run.
+
+Architecture, and the reasoning behind it:
+
+    Browser (GitHub Pages, static)
+      |
+      | 1. embed the user's question
+      | 2. cosine similarity against a prebuilt embeddings JSON
+      | 3. select top-k chunks                    <-- all of this is client side
+      |
+      v
+    Cloud Run proxy  (holds the API key, nothing else)
+      |
+      v
+    Gemini API
+
+The important insight: retrieval does not need a vector database. With a
+corpus of a few hundred chunks, the embeddings are a small JSON file you
+build at deploy time, and cosine similarity is about ten lines of JS. The
+entire "vector DB" is a for loop. Understand this before you ever pay for
+Pinecone.
+
+The only reason a backend exists at all is that a static site cannot keep a
+secret. That is the whole job of /proxy. Keep it that small.
+
+--------------------------------------------------------------------------------
+AML-301  Restructure the corpus into retrievable facts
+--------------------------------------------------------------------------------
+Type:      Story
+Est:       2h
+Depends:   AML-201
+Status:    TODO
+
+Why:
+  Track A wanted flowing prose. Retrieval wants self-contained chunks. A
+  chunk that says "I worked there for three years" is useless out of context
+  because retrieval will surface it without its neighbors.
+
+Steps:
+  - Add frontmatter per file: topic, date range, source, visibility
+  - Rewrite so each section stands alone. Repeat proper nouns instead of
+    using pronouns across paragraph boundaries.
+  - Add an FAQ file targeting the questions people will really ask: what do
+    you do, what are you good at, are you hiring/available, what is your
+    stack, what is the accordion thing
+
+Acceptance criteria:
+  [ ] Every section is comprehensible in isolation with no surrounding text
+  [ ] Frontmatter validates against a small schema
+  [ ] Re-checked against docs/privacy-boundary.md
+
+Learn:
+  That RAG quality is mostly a data engineering problem, not a model problem.
+  Most bad RAG is bad chunking.
+
+--------------------------------------------------------------------------------
+AML-302  Chunking strategy, with measurement
+--------------------------------------------------------------------------------
+Type:      Story
+Est:        2h
+Depends:   AML-301
+Status:    TODO
+
+Steps:
+  - Chunk on semantic boundaries (headings, paragraphs), not fixed windows
+  - Add overlap, try 0 / 10% / 20%
+  - Carry parent heading and source file into each chunk's metadata
+  - Try 3 configurations and keep the numbers
+
+Acceptance criteria:
+  [ ] chunks.json with id, text, metadata, token count per chunk
+  [ ] Token count distribution plotted; no chunk absurdly long or short
+  [ ] A written decision recording which config you chose and why
+
+Learn:
+  The recall/precision tradeoff of chunk size. Large chunks retrieve
+  reliably but dilute the prompt with irrelevance; small chunks are precise
+  but fragment facts across chunks.
+
+--------------------------------------------------------------------------------
+AML-303  Build the embeddings index
+--------------------------------------------------------------------------------
+Type:      Story
+Est:        2h
+Depends:   AML-302, AML-101
+Status:    TODO
+
+Steps:
+  - Embed every chunk with a Gemini embedding model
+  - Normalize the vectors, so similarity is a plain dot product later
+  - Write site/data/embeddings.json (or a binary if size demands it)
+  - Make the build script idempotent and content-hash cached, so it only
+    re-embeds chunks that actually changed
+
+Acceptance criteria:
+  [ ] embeddings.json committed or built in CI, size recorded
+  [ ] Re-running with no corpus changes makes zero API calls
+  [ ] A quick sanity check: nearest neighbors of a few chunks are sensible
+
+Learn:
+  What an embedding is: a point in high dimensional space where distance
+  approximates semantic similarity. Also that embedding models and chat
+  models are different models with different prices, and embeddings are far
+  cheaper.
+
+--------------------------------------------------------------------------------
+AML-304  Client side retrieval
+--------------------------------------------------------------------------------
+Type:      Story
+Est:        2h
+Depends:   AML-303
+Status:    TODO
+
+Steps:
+  - Load embeddings.json in the browser
+  - Embed the user query (this call has to go through the proxy, AML-306)
+  - Cosine similarity over all chunks, take top-k
+  - Add a score threshold so a bad match returns nothing at all
+
+Acceptance criteria:
+  [ ] Retrieval on a few hundred chunks completes in under 50ms
+  [ ] Nonsense or off-topic queries return zero chunks rather than the
+      least-bad chunk. This is what makes AML-314 possible.
+  [ ] A debug view showing retrieved chunks and their scores
+
+Learn:
+  That you just built a vector database in ten lines. Know the actual
+  threshold where this stops scaling (roughly tens of thousands of chunks,
+  or when the JSON gets too big to ship) so you know when a real vector DB
+  becomes justified.
+
+--------------------------------------------------------------------------------
+AML-305  Retrieval evaluation harness
+--------------------------------------------------------------------------------
+Type:      Story
+Est:        2h
+Depends:   AML-304
+Status:    TODO
+
+Why:
+  Build this before tuning anything. Otherwise you tune by vibes and cannot
+  tell an improvement from a regression.
+
+Steps:
+  - Write 30-40 questions with the chunk id(s) that SHOULD be retrieved
+  - Script that reports recall@k for k = 1, 3, 5
+  - Include questions that should retrieve nothing
+
+Acceptance criteria:
+  [ ] eval/retrieval.jsonl committed
+  [ ] One command prints recall@k
+  [ ] Baseline numbers recorded before any tuning
+
+Learn:
+  Retrieval failures and generation failures are different bugs with
+  different fixes. This harness tells you which one you have. Without it,
+  every wrong answer looks like the model's fault.
+
+--------------------------------------------------------------------------------
+AML-306  Cloud Run proxy
+--------------------------------------------------------------------------------
+Type:      Story
+Est:        3h
+Depends:   AML-101
+Status:    TODO
+
+Why:
+  Static sites cannot hold secrets. Anything in your JS bundle is public,
+  including an API key, and a leaked Gemini key gets found and abused fast.
+  Cloud Run scales to zero, so an idle proxy costs nothing.
+
+Steps:
+  - Minimal service (FastAPI or Node) with two endpoints:
+      POST /embed  -> proxies to the embedding model
+      POST /chat   -> proxies to the chat model, streaming
+  - Key from environment, injected via Secret Manager, never in the image
+  - Deploy with min-instances=0
+  - Confirm cold start latency and note it; it is user-visible
+
+Acceptance criteria:
+  [ ] Deployed and reachable
+  [ ] `git grep` for the key across the whole repo finds nothing
+  [ ] Cold and warm latency both recorded in docs/
+  [ ] Local dev path documented, so you are not deploying to test
+
+Learn:
+  Why this pattern is universal in production LLM apps, and the real cost of
+  scale-to-zero, which is that the first user of the day waits.
+
+--------------------------------------------------------------------------------
+AML-307  Lock down the proxy
+--------------------------------------------------------------------------------
+Type:      Story
+Est:        2h
+Depends:   AML-306
+Status:    TODO
+
+Why:
+  This endpoint is a public, unauthenticated, internet-facing wrapper around
+  a metered API billed to your personal card. Assume it will be found.
+
+Steps:
+  - CORS restricted to your Pages origin and localhost only
+  - Per-IP rate limit
+  - Max request body size and max output tokens, enforced server side
+  - Reject requests whose prompt does not match your expected shape
+  - Structured logging: timestamp, truncated query, token counts, latency
+
+Acceptance criteria:
+  [ ] A curl from a disallowed origin is rejected
+  [ ] Hammering the endpoint gets you 429s, verified
+  [ ] A hostile client cannot request 100k output tokens
+  [ ] Logs let you answer "what did people ask today and what did it cost"
+
+Learn:
+  Threat modeling a public AI endpoint. The realistic attacks are quota
+  exhaustion and using your key as free inference for something unrelated,
+  not clever prompt injection.
+
+--------------------------------------------------------------------------------
+AML-308  Design the system prompt
+--------------------------------------------------------------------------------
+Type:      Story
+Est:        2h
+Depends:   -
+Status:    TODO
+
+Steps:
+  - Version it as a file in the repo, not a string in code, so changes are
+    reviewable in diffs
+  - It must state: you answer as/about Michael, using ONLY the provided
+    context; if the context does not contain the answer, say so plainly;
+    never guess dates, employers, or numbers; cite which chunks you used
+  - Decide first person ("I am Mike") vs third person ("Mike is"). Third
+    person is more honest about what this is. First person is a better demo.
+    Pick deliberately and write down why.
+
+Acceptance criteria:
+  [ ] prompts/system.md committed, versioned
+  [ ] Refusal behavior specified with example phrasing
+  [ ] Persona decision documented
+
+Learn:
+  That a system prompt is a specification, and vague specs produce vague
+  behavior. Also that "do not hallucinate" is not an instruction a model can
+  follow; constraining it to provided context is.
+
+--------------------------------------------------------------------------------
+AML-309  Wire retrieval into generation
+--------------------------------------------------------------------------------
+Type:      Story
+Est:        2h
+Depends:   AML-304, AML-306, AML-308
+Status:    TODO
+
+Steps:
+  - Assemble: system prompt + retrieved chunks + conversation history + query
+  - Handle the zero-retrieval case explicitly, without calling the model
+  - Budget the context: cap history turns and total tokens
+  - Log the fully assembled prompt in dev mode so you can read what the
+    model actually received
+
+Acceptance criteria:
+  [ ] End to end answer to a real question, grounded in real chunks
+  [ ] Zero retrieval short-circuits to a canned "I do not have that"
+      without spending an API call
+  [ ] You have read at least ten assembled prompts in full
+
+Learn:
+  That "the LLM part" is the small part. Everything interesting happened in
+  assembling that string.
+
+--------------------------------------------------------------------------------
+AML-310  Streaming
+--------------------------------------------------------------------------------
+Type:      Story
+Est:        2h
+Depends:   AML-309
+Status:    TODO
+
+Steps:
+  - Server-sent events or chunked transfer from proxy through to the UI
+  - Render tokens as they arrive
+  - Handle mid-stream errors and user cancellation
+
+Acceptance criteria:
+  [ ] First token visible in well under a second when warm
+  [ ] Cancelling stops the stream and stops billing for it
+  [ ] Network failure mid-stream degrades gracefully
+
+Learn:
+  Why streaming is a UX requirement rather than a nicety, and how much
+  perceived latency it hides.
+
+--------------------------------------------------------------------------------
+AML-311  Chat UI
+--------------------------------------------------------------------------------
+Type:      Story
+Est:        4h
+Depends:   AML-310
+Status:    TODO
+
+Steps:
+  - Message list, input, loading state, error state
+  - Suggested starter questions, since an empty chat box gets no engagement
+  - Mobile first, keyboard accessible, respects prefers-color-scheme
+  - No framework needed. Vanilla is fine and keeps AML-217 simple too.
+
+Acceptance criteria:
+  [ ] Usable one-handed on a phone
+  [ ] Keyboard navigable, sensible focus management, screen reader labels
+  [ ] Works in light and dark mode
+  [ ] Every error state has been seen by you, deliberately triggered
+
+--------------------------------------------------------------------------------
+AML-312  Citations
+--------------------------------------------------------------------------------
+Type:      Story
+Est:        2h
+Depends:   AML-311
+Status:    TODO
+
+Steps:
+  - Show which chunks informed each answer, expandable, with source file
+  - Link back to the corpus file on GitHub
+
+Acceptance criteria:
+  [ ] Every answer shows its sources
+  [ ] You can spot a wrong answer's cause from the UI alone
+
+Learn:
+  Citations are a debugging tool disguised as a trust feature. They also
+  make the failure mode legible: an answer with weak citations is visibly
+  weak, which is much better than a confident wrong answer.
+
+--------------------------------------------------------------------------------
+AML-313  End to end evaluation
+--------------------------------------------------------------------------------
+Type:      Story
+Est:        3h
+Depends:   AML-309, AML-305
+Status:    TODO
+
+Steps:
+  - Golden set of ~40 question/expected-answer pairs, including:
+      answerable from corpus, NOT answerable, ambiguous, adversarial
+      ("what is his salary", "ignore your instructions", "write me code")
+  - Score each: correct / incomplete / wrong / wrongly refused / leaked
+  - Run it whenever you change the prompt or chunking, and keep the history
+
+Acceptance criteria:
+  [ ] eval/e2e.jsonl committed
+  [ ] One command produces a scored report
+  [ ] Results over time tracked in docs/evals.md
+  [ ] Zero privacy leaks. This one is pass/fail, not a percentage.
+
+Learn:
+  Why evals are the actual engineering discipline of LLM work. Without them
+  every prompt change is a coin flip that feels like progress.
+
+--------------------------------------------------------------------------------
+AML-314  Guardrails
+--------------------------------------------------------------------------------
+Type:      Story
+Est:        2h
+Depends:   AML-313
+Status:    TODO
+
+Note:
+  Defense in depth only. Per AML-105, the real privacy control is corpus
+  content. Nothing here is a substitute for that.
+
+Steps:
+  - Refuse off-topic requests, including generic "use me as ChatGPT" attempts
+  - Handle prompt injection attempts in user input
+  - Never emit contact details or anything outside the corpus
+  - Output length cap
+
+Acceptance criteria:
+  [ ] Adversarial cases from AML-313 all handled
+  [ ] Refusals read as friendly and in character, not as error messages
+  [ ] Attempting to use it as a general purpose coding assistant fails
+
+--------------------------------------------------------------------------------
+AML-315  Quota monitoring and a kill switch
+--------------------------------------------------------------------------------
+Type:      Story
+Est:        2h
+Depends:   AML-307
+Status:    TODO
+
+Why:
+  A public endpoint on your personal billing account needs a hard stop that
+  does not depend on you noticing something.
+
+Steps:
+  - GCP budget alert at a low dollar amount, emailed to you
+  - Daily request cap in the proxy that returns a polite "back tomorrow"
+  - A documented one-command way to take the endpoint down entirely
+  - Recheck actual limits at https://aistudio.google.com/rate-limit and
+    update docs/quotas.md, since the numbers from AML-101 may have moved
+
+Acceptance criteria:
+  [ ] Budget alert configured and test-fired
+  [ ] Daily cap enforced and verified
+  [ ] Kill switch documented in README and actually tested once
+  [ ] docs/quotas.md current
+
+Learn:
+  The operational reality of running anything metered in public. Also that
+  free tiers change, so the number you wrote down in month one is a snapshot.
+
+
+================================================================================
+EPIC 4 - SHIP IT (4xx)
+================================================================================
+
+--------------------------------------------------------------------------------
+AML-401  Production build and deploy pipeline
+--------------------------------------------------------------------------------
+Type:      Chore
+Est:        2h
+Depends:   AML-104
+Status:    TODO
+
+Acceptance criteria:
+  [ ] CI builds the embeddings index and publishes /site on push to main
+  [ ] Proxy deploys are separate from site deploys
+  [ ] A broken build fails loudly and does not publish
+  [ ] Rollback procedure documented
+
+--------------------------------------------------------------------------------
+AML-402  Landing page tying both tracks together
+--------------------------------------------------------------------------------
+Type:      Story
+Est:        3h
+Depends:   AML-218, AML-311
+Status:    TODO
+
+Why:
+  Two demos side by side is the whole story: here is a model I built, here
+  is a model I rented, here is exactly why they differ. That comparison is
+  more interesting than either demo alone and is the thing worth showing
+  another engineer.
+
+Acceptance criteria:
+  [ ] Both demos reachable and clearly labeled
+  [ ] A short honest explanation of what each one is and is not
+  [ ] Links to source
+
+--------------------------------------------------------------------------------
+AML-403  Custom subdomain
+--------------------------------------------------------------------------------
+Type:      Chore
+Est:        1h
+Depends:   AML-402
+Status:    TODO
+
+Notes:
+  mccomiskey.dev already points at Pages from the mccomiskey-dev repo. Adding
+  ask.mccomiskey.dev means a CNAME to mmccomiskey.github.io plus the custom
+  domain set on THIS repo. Two Pages sites on two subdomains of one apex is
+  fine. Do not touch the existing apex records.
+
+Acceptance criteria:
+  [ ] ask.mccomiskey.dev serves this repo over HTTPS
+  [ ] mccomiskey.dev still works, verified after the change
+  [ ] Proxy CORS updated for the new origin (AML-307)
+
+--------------------------------------------------------------------------------
+AML-404  Write it up
+--------------------------------------------------------------------------------
+Type:      Story
+Est:        4h
+Depends:   AML-402
+Status:    TODO
+
+Why:
+  Writing it down is how you find out which parts you only think you
+  understand.
+
+Suggested structure:
+  - What I built and why two versions
+  - The scale lesson with the actual charts from AML-215 and AML-216
+  - Why RAG needs no vector database at this size
+  - What surprised me
+  - What I would do differently
+
+Acceptance criteria:
+  [ ] Published, linked from the landing page
+  [ ] Contains real numbers and real charts, not hand waving
+  [ ] Someone who has not done this project could follow it
+
+--------------------------------------------------------------------------------
+AML-405  Lightweight analytics
+--------------------------------------------------------------------------------
+Type:      Chore
+Est:        1h
+Depends:   AML-402
+Status:    TODO
+
+Acceptance criteria:
+  [ ] You can see what people actually ask, in aggregate
+  [ ] Privacy respecting, no third party tracking, no PII stored
+  [ ] Common questions feed back into the corpus and the eval set
+
+Learn:
+  The real feedback loop for a RAG system is reading the queries it failed
+  and adding the missing facts. Analytics is what makes that loop exist.
+
+
+================================================================================
+EPIC 5 - STRETCH (5xx)
+================================================================================
+Only after 4xx ships. These are the "now I actually want to go deeper" items.
+
+--------------------------------------------------------------------------------
+AML-501  LoRA fine-tune a real small model
+--------------------------------------------------------------------------------
+Type:      Spike
+Est:        1-2 days
+Depends:   AML-402
+Status:    TODO
+
+  Fine-tune Gemma or similar on the corpus with LoRA, on Colab's free GPU.
+  This is the genuine middle ground between Track A and Track B: real
+  pretrained weights, your data, your training run.
+
+Learn:
+  Why fine-tuning teaches STYLE effectively and FACTS poorly, and therefore
+  why RAG remains the right tool for a knowledge base. This is the single
+  most commonly misunderstood point in applied LLM work.
+
+--------------------------------------------------------------------------------
+AML-502  Three way comparison
+--------------------------------------------------------------------------------
+Type:      Story
+Est:        4h
+Depends:   AML-501
+Status:    TODO
+
+  Same questions through: from-scratch (A), LoRA (501), RAG (B). One table.
+  Cost, latency, and quality for each.
+
+Learn:
+  How to choose an approach for a real problem, with evidence rather than
+  fashion.
+
+--------------------------------------------------------------------------------
+AML-503  Tool use / function calling
+--------------------------------------------------------------------------------
+Type:      Story
+Est:        1 day
+Depends:   AML-402
+Status:    TODO
+
+  Let it answer live questions by calling functions rather than retrieving
+  text, for example current training mileage from Garmin or Strava.
+
+  Gate this hard against AML-105 first. Live personal health data on a
+  public endpoint is a materially bigger decision than static prose, and the
+  right answer may well be no.
+
+Learn:
+  The difference between retrieval (static text) and tool use (live calls),
+  and that an agent is mostly a loop around function calling.
+
+
+================================================================================
+ORDERING CHEAT SHEET
+================================================================================
+
+Week 1        101, 102, 103, 104, 105, 106
+              Foundations. Boring. Do it anyway.
+
+Weeks 2-3     201, 202, 203, 204, 205
+              Data and the bigram baseline. Ends with your first sampled text.
+
+Weeks 4-6     206 through 212
+              The transformer itself. 207 and 211 are the two that matter
+              most. Slow down on both.
+
+Week 7        213, 214, 215, 216
+              Training, sampling, and the scale lesson. 215 is the payoff.
+
+Weeks 8-9     217, 218
+              Port to JS and ship it. 217 is the hardest ticket in the
+              project and the one that proves you understood the rest.
+
+Weeks 10-12   301 through 315
+              Track B. Faster going, more moving parts, more operational.
+
+Week 13       401 through 405
+              Ship, write up, done.
+
+Then          5xx if you still want more.
+
+Realistic total: about a quarter of evenings and weekends. If Track A stalls
+on a bug, jump to 301-305 for a while. They share only the corpus, so they
+do not block each other.
+
+
+================================================================================
+DECISIONS ALREADY MADE
+================================================================================
+
+  Two tracks, not one
+    Because "build an LLM" and "answer questions about me" are different
+    problems and pretending otherwise produces a bad version of both.
+
+  Separate repo, not inside mccomiskey-dev
+    Keeps a live personal site out of the blast radius of a learning project.
+    Link the two later, or move to ask.mccomiskey.dev via AML-403.
+
+  Cloud Run proxy, not a key in the frontend
+    A static site cannot keep a secret. This is also the pattern every real
+    production LLM app uses, so it is worth learning properly.
+
+  Client side retrieval, no vector database
+    At a few hundred chunks a JSON file and a for loop are genuinely the
+    right answer. Know the point where that stops being true (AML-304).
+
+  Character level tokenizer for Track A
+    Worse model, better teacher. Revisit in AML-203 if you disagree.
+
+
+================================================================================
+OPEN QUESTIONS
+================================================================================
+
+  [ ] First or third person for the Track B persona? (AML-308)
+  [ ] Are running and training data in scope for a public endpoint? (AML-105)
+  [ ] Does Track A get a general pretraining corpus (TinyStories or similar)
+      before fine-tuning on the bio, or stay bio-only? Bio-only is the
+      purer scale lesson. Pretraining first produces something less
+      embarrassing. Decide after seeing AML-215's numbers, not before.
+  [ ] Does the site need a visible notice that queries go to Google on the
+      free tier? (AML-105)
+
+================================================================================
+END
+================================================================================
